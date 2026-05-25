@@ -201,7 +201,8 @@ GitHub Actions publishes packages from `.github/workflows/nuget.yml`:
 - Release tags must match the base version, either `1.0.0` or `v1.0.0`.
 
 Configure the repository secret `NUGET_API_KEY` with a NuGet.org API key before
-publishing.
+publishing. If the secret is not configured, the workflow still builds, tests,
+packs, and uploads artifacts, but skips the NuGet.org publish step.
 
 ## Repository Layout
 

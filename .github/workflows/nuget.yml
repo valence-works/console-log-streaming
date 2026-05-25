@@ -19,6 +19,7 @@ env:
   PACKAGE_OUTPUT: artifacts/packages
   VERSION_PROJECT: src/ConsoleLogStream.Core/ConsoleLogStream.Core.csproj
   NUGET_SOURCE: https://api.nuget.org/v3/index.json
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   pack-and-publish:
@@ -109,8 +110,8 @@ jobs:
           set -euo pipefail
 
           if [ -z "${NUGET_API_KEY:-}" ]; then
-            echo "::error::Repository secret NUGET_API_KEY is required to publish packages to NuGet.org."
-            exit 1
+            echo "::warning::Repository secret NUGET_API_KEY is not configured; package publishing to NuGet.org was skipped."
+            exit 0
           fi
 
           for package in "$PACKAGE_OUTPUT"/*.nupkg; do
