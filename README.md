@@ -188,6 +188,21 @@ dotnet build ConsoleLogStream.slnx
 dotnet test ConsoleLogStream.slnx
 ```
 
+## Package Publishing
+
+The base package version is controlled by `VersionPrefix` in
+`Directory.Build.props`.
+
+GitHub Actions publishes packages from `.github/workflows/nuget.yml`:
+
+- Pushes to `main` publish preview packages using
+  `{VersionPrefix}-preview.{GITHUB_RUN_NUMBER}`.
+- Published GitHub releases publish stable packages using `VersionPrefix`.
+- Release tags must match the base version, either `1.0.0` or `v1.0.0`.
+
+Configure the repository secret `NUGET_API_KEY` with a NuGet.org API key before
+publishing.
+
 ## Repository Layout
 
 ```text

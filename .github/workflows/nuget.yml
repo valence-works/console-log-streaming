@@ -1,0 +1,130 @@
+name: Build and publish NuGet packages
+
+on:
+  push:
+    branches:
+      - main
+  release:
+    types:
+      - published
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  CONFIGURATION: Release
+  PACKAGE_OUTPUT: artifacts/packages
+  VERSION_PROJECT: src/ConsoleLogStream.Core/ConsoleLogStream.Core.csproj
+  NUGET_SOURCE: https://api.nuget.org/v3/index.json
+
+jobs:
+  pack-and-publish:
+    name: Pack and publish
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.ref }}
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Compute package version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          base_version="$(dotnet msbuild "$VERSION_PROJECT" -getProperty:VersionPrefix | tail -n 1 | tr -d '\r')"
+          if [ -z "$base_version" ]; then
+            echo "::error::VersionPrefix could not be resolved from $VERSION_PROJECT"
+            exit 1
+          fi
+
+          if [ "${{ github.event_name }}" = "release" ]; then
+            release_tag="${{ github.event.release.tag_name }}"
+            normalized_tag="${release_tag#v}"
+
+            if [ "$normalized_tag" != "$base_version" ]; then
+              echo "::error::Release tag '$release_tag' does not match VersionPrefix '$base_version'. Use tag v$base_version or update Directory.Build.props."
+              exit 1
+            fi
+
+            package_version="$base_version"
+            package_channel="stable"
+          else
+            package_version="${base_version}-preview.${GITHUB_RUN_NUMBER}"
+            package_channel="preview"
+          fi
+
+          echo "base-version=$base_version" >> "$GITHUB_OUTPUT"
+          echo "package-version=$package_version" >> "$GITHUB_OUTPUT"
+          echo "package-channel=$package_channel" >> "$GITHUB_OUTPUT"
+          echo "Package version: $package_version"
+
+      - name: Restore
+        run: dotnet restore ConsoleLogStream.slnx
+
+      - name: Build
+        run: dotnet build ConsoleLogStream.slnx --configuration "$CONFIGURATION" --no-restore -p:ContinuousIntegrationBuild=true
+
+      - name: Test
+        run: dotnet test ConsoleLogStream.slnx --configuration "$CONFIGURATION" --no-build
+
+      - name: Pack
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$PACKAGE_OUTPUT"
+
+          for project in src/*/*.csproj; do
+            dotnet pack "$project" \
+              --configuration "$CONFIGURATION" \
+              --no-build \
+              --output "$PACKAGE_OUTPUT" \
+              -p:PackageVersion="${{ steps.version.outputs.package-version }}" \
+              -p:ContinuousIntegrationBuild=true
+          done
+
+      - name: Upload package artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: console-log-stream-${{ steps.version.outputs.package-version }}
+          path: ${{ env.PACKAGE_OUTPUT }}/*.nupkg
+          if-no-files-found: error
+
+      - name: Publish to NuGet.org
+        shell: bash
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${NUGET_API_KEY:-}" ]; then
+            echo "::error::Repository secret NUGET_API_KEY is required to publish packages to NuGet.org."
+            exit 1
+          fi
+
+          for package in "$PACKAGE_OUTPUT"/*.nupkg; do
+            dotnet nuget push "$package" \
+              --api-key "$NUGET_API_KEY" \
+              --source "$NUGET_SOURCE" \
+              --skip-duplicate
+          done
+
+      - name: Attach packages to GitHub release
+        if: github.event_name == 'release'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release upload "${{ github.event.release.tag_name }}" "$PACKAGE_OUTPUT"/*.nupkg --clobber
