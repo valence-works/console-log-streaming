@@ -99,6 +99,7 @@ jobs:
             dotnet pack "$project" \
               --configuration "$CONFIGURATION" \
               --no-build \
+              --no-restore \
               --output "$PACKAGE_OUTPUT" \
               -p:Version="${{ steps.version.outputs.package-version }}" \
               -p:PackageVersion="${{ steps.version.outputs.package-version }}" \
