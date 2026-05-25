@@ -1,50 +1,83 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!--
+Sync Impact Report
+Version change: template -> 1.0.0
+Modified principles:
+- Template placeholders -> Library-First Reuse
+- Template placeholders -> Safe Console Data Boundaries
+- Template placeholders -> Bounded Runtime Behavior
+- Template placeholders -> Testable Public Contracts
+- Template placeholders -> Minimal Dependencies
+Added sections:
+- Package Standards
+- Development Workflow
+Removed sections:
+- None
+Templates requiring updates:
+- .specify/templates/plan-template.md: reviewed, no project-specific changes required
+- .specify/templates/spec-template.md: reviewed, no project-specific changes required
+- .specify/templates/tasks-template.md: reviewed, no project-specific changes required
+Follow-up TODOs:
+- None
+-->
+
+# Console Log Stream Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Library-First Reuse
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+Every feature MUST be designed as reusable .NET library functionality before any host-specific
+adapter is added. Core capture, redaction, buffering, and persistence contracts MUST not depend on
+ASP.NET Core, SignalR, Elsa, or any application framework. Framework packages may adapt the core
+contracts, but they MUST NOT contain the only implementation of shared behavior.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### II. Safe Console Data Boundaries
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+Raw stdout and stderr content MUST remain inside the capture and redaction boundary. Stores,
+streaming providers, transports, endpoints, and diagnostics observers MUST receive only normalized
+and redacted console line events. The project MUST document capture limitations clearly, especially
+that managed `Console.Out` and `Console.Error` interception is different from guaranteed
+file-descriptor-level process capture.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### III. Bounded Runtime Behavior
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+The library MUST protect host applications from unbounded memory growth and blocking console writes.
+Recent buffers, live subscriber queues, and persistence queues MUST be bounded. Overload behavior
+MUST prefer explicit dropped-line or dropped-write accounting over unbounded allocation or
+backpressure that can stall application output.
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+### IV. Testable Public Contracts
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+Public contracts MUST be small, deterministic, and covered by tests before release. Tests MUST cover
+line framing, stdout/stderr identity, redaction, ANSI handling, truncation, bounded buffers, live
+subscription behavior, persistence retention, and graceful disposal where applicable. Public API
+changes MUST be intentional and reflected in documentation.
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+### V. Minimal Dependencies
+
+Core packages MUST use only platform libraries and small, justified dependencies. Optional
+capabilities such as ASP.NET Core SignalR or SQLite persistence MUST live in separate packages so
+applications can adopt only what they need.
+
+## Package Standards
+
+The project targets modern supported .NET applications first. Package names, namespaces, and
+repository documentation MUST be neutral and reusable outside Valence Works products. The default
+license is MIT. README examples MUST show a minimal console/worker setup, ASP.NET Core live
+streaming setup, and optional SQLite persistence setup.
+
+## Development Workflow
+
+Work proceeds through Speckit specification, planning, tasks, and implementation artifacts. Each
+feature MUST define independently testable user stories, a technical plan, actionable tasks, and
+verification commands. Before handoff, the solution MUST build and the relevant tests MUST pass, or
+the failure must be documented with exact commands and observed errors.
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+This constitution supersedes conflicting ad hoc practices in the repository. Amendments require a
+documented version bump, a sync impact report, and review of Speckit templates or runtime guidance
+affected by the change. Versioning follows semantic governance: MAJOR for incompatible principle
+changes, MINOR for new or materially expanded principles, and PATCH for clarifications.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Version**: 1.0.0 | **Ratified**: 2026-05-25 | **Last Amended**: 2026-05-25

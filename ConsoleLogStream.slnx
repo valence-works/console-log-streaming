@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/samples/">
+    <Project Path="samples/ConsoleLogStream.Sample.AspNetCore/ConsoleLogStream.Sample.AspNetCore.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/ConsoleLogStream.AspNetCore/ConsoleLogStream.AspNetCore.csproj" />
+    <Project Path="src/ConsoleLogStream.Core/ConsoleLogStream.Core.csproj" />
+    <Project Path="src/ConsoleLogStream.Persistence.Sqlite/ConsoleLogStream.Persistence.Sqlite.csproj" />
+  </Folder>
+  <Folder Name="/test/">
+    <Project Path="test/ConsoleLogStream.Tests/ConsoleLogStream.Tests.csproj" />
+  </Folder>
+</Solution>
