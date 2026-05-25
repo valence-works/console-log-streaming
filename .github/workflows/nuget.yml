@@ -31,7 +31,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.ref }}
-          fetch-depth: 0
+          fetch-depth: 1
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -68,8 +68,7 @@ jobs:
 
           echo "base-version=$base_version" >> "$GITHUB_OUTPUT"
           echo "package-version=$package_version" >> "$GITHUB_OUTPUT"
-          echo "package-channel=$package_channel" >> "$GITHUB_OUTPUT"
-          echo "Package version: $package_version"
+          echo "Package version: $package_version ($package_channel)"
 
       - name: Restore
         run: dotnet restore ConsoleLogStream.slnx

@@ -198,7 +198,8 @@ GitHub Actions publishes packages from `.github/workflows/nuget.yml`:
 - Pushes to `main` publish preview packages using
   `{VersionPrefix}-preview.{GITHUB_RUN_NUMBER}`.
 - Published GitHub releases publish stable packages using `VersionPrefix`.
-- Release tags must match the base version, either `1.0.0` or `v1.0.0`.
+- Release tags must match the `VersionPrefix` in `Directory.Build.props`, e.g.
+  `1.2.3` or `v1.2.3`.
 
 Configure the repository secret `NUGET_API_KEY` with a NuGet.org API key before
 publishing. If the secret is not configured, the workflow still builds, tests,
