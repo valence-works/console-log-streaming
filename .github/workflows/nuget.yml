@@ -114,6 +114,7 @@ jobs:
           if-no-files-found: error
 
       - name: Publish to NuGet.org
+        if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main'
         shell: bash
         env:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
@@ -131,6 +132,10 @@ jobs:
               --source "$NUGET_SOURCE" \
               --skip-duplicate
           done
+
+      - name: Skip NuGet.org publish for non-main manual dispatch
+        if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main'
+        run: echo "::warning::Manual workflow_dispatch runs only publish to NuGet.org from main; package artifacts were uploaded for this ref."
 
   attach-release-assets:
     name: Attach release assets
