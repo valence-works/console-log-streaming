@@ -19,7 +19,7 @@ env:
   PACKAGE_OUTPUT: artifacts/packages
   VERSION_PROJECT: src/ConsoleLogStream.Core/ConsoleLogStream.Core.csproj
   NUGET_SOURCE: https://api.nuget.org/v3/index.json
-  FEEDZ_SOURCE: https://f.feedz.io/valenceworks/console-log-stream/nuget/index.json
+  FEEDZ_SOURCE: https://f.feedz.io/valence-works/consolelogstream/nuget/index.json
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
