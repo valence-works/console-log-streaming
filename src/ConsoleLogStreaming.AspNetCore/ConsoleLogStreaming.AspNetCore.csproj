@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <PackageId>ConsoleLogStreaming.AspNetCore</PackageId>
+    <Description>ASP.NET Core endpoints and SignalR hub adapter for ConsoleLogStreaming.</Description>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ConsoleLogStreaming.Endpoints.MinimalApi\ConsoleLogStreaming.Endpoints.MinimalApi.csproj" />
+    <ProjectReference Include="..\ConsoleLogStreaming.SignalR\ConsoleLogStreaming.SignalR.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>

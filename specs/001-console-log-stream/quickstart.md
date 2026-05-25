@@ -3,15 +3,15 @@
 ## Build and test
 
 ```sh
-dotnet build ConsoleLogStream.slnx
-dotnet test ConsoleLogStream.slnx
+dotnet build ConsoleLogStreaming.slnx
+dotnet test ConsoleLogStreaming.slnx
 ```
 
 ## Core capture
 
 ```csharp
 var services = new ServiceCollection()
-    .AddConsoleLogStream()
+    .AddConsoleLogStreaming()
     .BuildServiceProvider();
 
 var capture = services.GetRequiredService<IConsoleLogCapture>();
@@ -27,19 +27,19 @@ var recent = await provider.GetRecentAsync(new ConsoleLogFilter { Limit = 10 });
 ## ASP.NET Core
 
 ```csharp
-builder.Services.AddConsoleLogStream();
-builder.Services.AddConsoleLogStreamAspNetCore();
+builder.Services.AddConsoleLogStreaming();
+builder.Services.AddConsoleLogStreamingAspNetCore();
 
 var app = builder.Build();
-app.MapConsoleLogStream();
+app.MapConsoleLogStreaming();
 await app.RunAsync();
 ```
 
 ## SQLite
 
 ```csharp
-builder.Services.AddConsoleLogStream();
-builder.Services.AddConsoleLogStreamSqlite(options =>
+builder.Services.AddConsoleLogStreaming();
+builder.Services.AddConsoleLogStreamingSqlite(options =>
 {
     options.ConnectionString = "Data Source=console-logs.db";
     options.MaxAge = TimeSpan.FromDays(7);

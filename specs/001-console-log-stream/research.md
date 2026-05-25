@@ -1,4 +1,4 @@
-# Research: Console Log Stream
+# Research: Console Log Streaming
 
 ## Decision: Capture managed console writers in v1
 

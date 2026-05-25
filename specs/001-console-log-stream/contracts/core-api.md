@@ -3,7 +3,7 @@
 ## Registration
 
 ```csharp
-services.AddConsoleLogStream(options =>
+services.AddConsoleLogStreaming(options =>
 {
     options.RecentCapacity = 1000;
     options.MaxLineLength = 16 * 1024;
@@ -30,7 +30,7 @@ public interface IConsoleLogProvider
 
     ValueTask<RecentConsoleLogsResult> GetRecentAsync(ConsoleLogFilter filter, CancellationToken cancellationToken = default);
 
-    IAsyncEnumerable<ConsoleLogStreamItem> SubscribeAsync(ConsoleLogFilter filter, CancellationToken cancellationToken = default);
+    IAsyncEnumerable<ConsoleLogStreamingItem> SubscribeAsync(ConsoleLogFilter filter, CancellationToken cancellationToken = default);
 
     ValueTask<IReadOnlyCollection<ConsoleLogSource>> ListSourcesAsync(CancellationToken cancellationToken = default);
 }

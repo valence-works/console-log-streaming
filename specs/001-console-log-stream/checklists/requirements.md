@@ -1,4 +1,4 @@
-# Specification Quality Checklist: Console Log Stream
+# Specification Quality Checklist: Console Log Streaming
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
 **Created**: 2026-05-25

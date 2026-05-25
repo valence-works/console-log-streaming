@@ -3,13 +3,13 @@
 ## Registration
 
 ```csharp
-builder.Services.AddConsoleLogStream();
-builder.Services.AddConsoleLogStreamAspNetCore(options =>
+builder.Services.AddConsoleLogStreaming();
+builder.Services.AddConsoleLogStreamingAspNetCore(options =>
 {
     options.AuthorizationPolicy = "diagnostics.console";
 });
 
-app.MapConsoleLogStream();
+app.MapConsoleLogStreaming();
 ```
 
 ## HTTP Endpoints
@@ -32,6 +32,6 @@ Client methods:
 
 Server methods:
 
-- `ConsoleLogStreamItem` messages through `ConsoleLogStreamItem`.
+- `ConsoleLogStreamingItem` messages through `ConsoleLogStreamingItem`.
 
 Authorization is host-configurable through standard ASP.NET Core authorization policy names.

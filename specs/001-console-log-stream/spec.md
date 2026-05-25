@@ -1,4 +1,4 @@
-# Feature Specification: Console Log Stream
+# Feature Specification: Console Log Streaming
 
 **Feature Branch**: `001-console-log-stream`
 

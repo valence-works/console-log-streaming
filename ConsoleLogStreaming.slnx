@@ -1,0 +1,17 @@
+<Solution>
+  <Folder Name="/samples/">
+    <Project Path="samples/ConsoleLogStreaming.Sample.AspNetCore/ConsoleLogStreaming.Sample.AspNetCore.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/ConsoleLogStreaming.AspNetCore/ConsoleLogStreaming.AspNetCore.csproj" />
+    <Project Path="src/ConsoleLogStreaming.Contracts/ConsoleLogStreaming.Contracts.csproj" />
+    <Project Path="src/ConsoleLogStreaming.Core/ConsoleLogStreaming.Core.csproj" />
+    <Project Path="src/ConsoleLogStreaming.Endpoints.FastEndpoints/ConsoleLogStreaming.Endpoints.FastEndpoints.csproj" />
+    <Project Path="src/ConsoleLogStreaming.Endpoints.MinimalApi/ConsoleLogStreaming.Endpoints.MinimalApi.csproj" />
+    <Project Path="src/ConsoleLogStreaming.Persistence.Sqlite/ConsoleLogStreaming.Persistence.Sqlite.csproj" />
+    <Project Path="src/ConsoleLogStreaming.SignalR/ConsoleLogStreaming.SignalR.csproj" />
+  </Folder>
+  <Folder Name="/test/">
+    <Project Path="test/ConsoleLogStreaming.Tests/ConsoleLogStreaming.Tests.csproj" />
+  </Folder>
+</Solution>

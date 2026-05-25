@@ -1,4 +1,4 @@
-# Implementation Plan: Console Log Stream
+# Implementation Plan: Console Log Streaming
 
 **Branch**: `001-console-log-stream` | **Date**: 2026-05-25 | **Spec**: [spec.md](./spec.md)
 
@@ -44,7 +44,7 @@ comprehensive README, MIT license, and GitHub repository metadata.
 
 | Principle | Verdict | Evidence |
 |-----------|---------|----------|
-| I. Library-First Reuse | PASS | Core capture, models, redaction, buffers, and provider contracts live in `ConsoleLogStream.Core`; web and SQLite are adapters. |
+| I. Library-First Reuse | PASS | Core capture, models, redaction, buffers, and provider contracts live in `ConsoleLogStreaming.Core`; web and SQLite are adapters. |
 | II. Safe Console Data Boundaries | PASS | Plan requires redaction before stores, subscribers, SQLite, endpoints, or hubs. |
 | III. Bounded Runtime Behavior | PASS | Recent buffers, subscriber queues, and SQLite writes are bounded with dropped counts. |
 | IV. Testable Public Contracts | PASS | Tests cover capture, redaction, framing, buffers, SignalR, and SQLite retention. |
@@ -71,18 +71,18 @@ specs/001-console-log-stream/
 
 ```text
 src/
-├── ConsoleLogStream.Core/
-├── ConsoleLogStream.AspNetCore/
-└── ConsoleLogStream.Persistence.Sqlite/
+├── ConsoleLogStreaming.Core/
+├── ConsoleLogStreaming.AspNetCore/
+└── ConsoleLogStreaming.Persistence.Sqlite/
 
 test/
-└── ConsoleLogStream.Tests/
+└── ConsoleLogStreaming.Tests/
 
 samples/
-└── ConsoleLogStream.Sample.AspNetCore/
+└── ConsoleLogStreaming.Sample.AspNetCore/
 ```
 
-**Structure Decision**: Keep shared runtime behavior in `ConsoleLogStream.Core`; add focused adapter
+**Structure Decision**: Keep shared runtime behavior in `ConsoleLogStreaming.Core`; add focused adapter
 packages for ASP.NET Core and SQLite; use one test project initially to keep the OSS seed compact
 while still covering cross-package behavior.
 

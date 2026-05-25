@@ -1,4 +1,4 @@
-# Tasks: Console Log Stream
+# Tasks: Console Log Streaming
 
 **Input**: Design documents from `/specs/001-console-log-stream/`
 **Tests**: Required by the specification and constitution.
@@ -6,17 +6,17 @@
 ## Phase 1: Setup
 
 - [X] T001 Create solution, shared build props, central package versions, gitignore, and source/test folders in repository root
-- [X] T002 [P] Create `src/ConsoleLogStream.Core/ConsoleLogStream.Core.csproj`
-- [X] T003 [P] Create `src/ConsoleLogStream.AspNetCore/ConsoleLogStream.AspNetCore.csproj`
-- [X] T004 [P] Create `src/ConsoleLogStream.Persistence.Sqlite/ConsoleLogStream.Persistence.Sqlite.csproj`
-- [X] T005 [P] Create `test/ConsoleLogStream.Tests/ConsoleLogStream.Tests.csproj`
+- [X] T002 [P] Create `src/ConsoleLogStreaming.Core/ConsoleLogStreaming.Core.csproj`
+- [X] T003 [P] Create `src/ConsoleLogStreaming.AspNetCore/ConsoleLogStreaming.AspNetCore.csproj`
+- [X] T004 [P] Create `src/ConsoleLogStreaming.Persistence.Sqlite/ConsoleLogStreaming.Persistence.Sqlite.csproj`
+- [X] T005 [P] Create `test/ConsoleLogStreaming.Tests/ConsoleLogStreaming.Tests.csproj`
 
 ## Phase 2: Foundational
 
-- [X] T006 Implement core models in `src/ConsoleLogStream.Core/Models`
-- [X] T007 Implement options and redaction contracts in `src/ConsoleLogStream.Core`
-- [X] T008 Implement source registry and filter matching in `src/ConsoleLogStream.Core`
-- [X] T009 Implement service registration in `src/ConsoleLogStream.Core/DependencyInjection`
+- [X] T006 Implement core models in `src/ConsoleLogStreaming.Core/Models`
+- [X] T007 Implement options and redaction contracts in `src/ConsoleLogStreaming.Core`
+- [X] T008 Implement source registry and filter matching in `src/ConsoleLogStreaming.Core`
+- [X] T009 Implement service registration in `src/ConsoleLogStreaming.Core/DependencyInjection`
 
 ## Phase 3: User Story 1 - Capture Managed Console Lines (P1)
 
@@ -24,10 +24,10 @@
 
 **Independent Test**: Write stdout/stderr through captured console writers and query recent events.
 
-- [X] T010 [P] [US1] Add capture/redaction tests in `test/ConsoleLogStream.Tests/Core`
-- [X] T011 [US1] Implement bounded in-memory provider in `src/ConsoleLogStream.Core/Providers`
-- [X] T012 [US1] Implement tee text writer and capture service in `src/ConsoleLogStream.Core/Capture`
-- [X] T013 [US1] Implement ANSI stripping, truncation, idle flush, and shutdown flush in `src/ConsoleLogStream.Core/Capture`
+- [X] T010 [P] [US1] Add capture/redaction tests in `test/ConsoleLogStreaming.Tests/Core`
+- [X] T011 [US1] Implement bounded in-memory provider in `src/ConsoleLogStreaming.Core/Providers`
+- [X] T012 [US1] Implement tee text writer and capture service in `src/ConsoleLogStreaming.Core/Capture`
+- [X] T013 [US1] Implement ANSI stripping, truncation, idle flush, and shutdown flush in `src/ConsoleLogStreaming.Core/Capture`
 
 ## Phase 4: User Story 2 - Stream From ASP.NET Core (P2)
 
@@ -35,8 +35,8 @@
 
 **Independent Test**: Use in-memory test server and SignalR client to receive recent/live lines.
 
-- [X] T014 [P] [US2] Add ASP.NET Core endpoint and hub tests in `test/ConsoleLogStream.Tests/AspNetCore`
-- [X] T015 [US2] Implement ASP.NET Core options, endpoints, hub, and mapping extensions in `src/ConsoleLogStream.AspNetCore`
+- [X] T014 [P] [US2] Add ASP.NET Core endpoint and hub tests in `test/ConsoleLogStreaming.Tests/AspNetCore`
+- [X] T015 [US2] Implement ASP.NET Core options, endpoints, hub, and mapping extensions in `src/ConsoleLogStreaming.AspNetCore`
 
 ## Phase 5: User Story 3 - Persist Redacted Console Logs (P3)
 
@@ -44,8 +44,8 @@
 
 **Independent Test**: Configure SQLite file, publish events, recreate store, query persisted lines.
 
-- [X] T016 [P] [US3] Add SQLite persistence and retention tests in `test/ConsoleLogStream.Tests/Sqlite`
-- [X] T017 [US3] Implement SQLite options, schema, query mapping, write queue, and retention in `src/ConsoleLogStream.Persistence.Sqlite`
+- [X] T016 [P] [US3] Add SQLite persistence and retention tests in `test/ConsoleLogStreaming.Tests/Sqlite`
+- [X] T017 [US3] Implement SQLite options, schema, query mapping, write queue, and retention in `src/ConsoleLogStreaming.Persistence.Sqlite`
 
 ## Phase 6: User Story 4 - Publish OSS Project (P4)
 
@@ -55,13 +55,13 @@
 
 - [X] T018 [P] [US4] Add MIT `LICENSE`
 - [X] T019 [US4] Add comprehensive `README.md`
-- [X] T020 [US4] Add sample ASP.NET Core app in `samples/ConsoleLogStream.Sample.AspNetCore`
+- [X] T020 [US4] Add sample ASP.NET Core app in `samples/ConsoleLogStreaming.Sample.AspNetCore`
 - [X] T021 [US4] Add package metadata to project files
 
 ## Phase 7: Polish & Validation
 
-- [X] T022 Run `dotnet format --verify-no-changes ConsoleLogStream.slnx`
-- [X] T023 Run `dotnet test ConsoleLogStream.slnx`
+- [X] T022 Run `dotnet format --verify-no-changes ConsoleLogStreaming.slnx`
+- [X] T023 Run `dotnet test ConsoleLogStreaming.slnx`
 - [X] T024 Inspect git status and prepare GitHub repository publication
 
 ## Dependencies

@@ -1,4 +1,4 @@
-# Data Model: Console Log Stream
+# Data Model: Console Log Streaming
 
 ## ConsoleLogLine
 
@@ -47,7 +47,7 @@ Bounded buffer, subscriber, or persistence loss summary.
 - `Count`: number of dropped lines or writes.
 - `From`, `To`: optional time span covered by the summary.
 
-## ConsoleLogStreamItem
+## ConsoleLogStreamingItem
 
 Union-style item for live streams.
 

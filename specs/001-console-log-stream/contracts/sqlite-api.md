@@ -3,8 +3,8 @@
 ## Registration
 
 ```csharp
-services.AddConsoleLogStream();
-services.AddConsoleLogStreamSqlite(options =>
+services.AddConsoleLogStreaming();
+services.AddConsoleLogStreamingSqlite(options =>
 {
     options.ConnectionString = "Data Source=console-logs.db";
     options.MaxAge = TimeSpan.FromDays(7);

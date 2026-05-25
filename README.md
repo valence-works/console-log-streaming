@@ -1,6 +1,6 @@
-# Console Log Stream
+# Console Log Streaming
 
-Console Log Stream is a small .NET library family for capturing managed
+Console Log Streaming is a small .NET library family for capturing managed
 `Console.Out` and `Console.Error` output as redacted, line-oriented diagnostics
 events. It gives applications a reusable foundation for recent console log
 backfill, live streaming, and optional short-term SQLite persistence without
@@ -21,7 +21,7 @@ The usual choices are awkward:
   semantics.
 - Add a vendor log stack when all you need is short-term operational visibility.
 
-Console Log Stream packages the reusable middle layer: safe managed capture,
+Console Log Streaming packages the reusable middle layer: safe managed capture,
 redaction, bounded buffers, filters, live subscriptions, optional web transport,
 and optional local persistence.
 
@@ -29,9 +29,13 @@ and optional local persistence.
 
 | Package | Purpose |
 |---------|---------|
-| `ConsoleLogStream.Core` | Framework-neutral capture, redaction, models, bounded in-memory provider, and async live subscriptions. |
-| `ConsoleLogStream.AspNetCore` | Minimal API endpoints and SignalR hub for web hosts. |
-| `ConsoleLogStream.Persistence.Sqlite` | Optional durable store for redacted console lines with retention. |
+| `ConsoleLogStreaming.Core` | Framework-neutral capture, redaction, models, bounded in-memory provider, and async live subscriptions. |
+| `ConsoleLogStreaming.Contracts` | Shared HTTP and realtime DTOs plus core-to-DTO mapping seams. |
+| `ConsoleLogStreaming.Endpoints.MinimalApi` | Minimal API recent and sources endpoints. |
+| `ConsoleLogStreaming.Endpoints.FastEndpoints` | FastEndpoints recent and sources endpoints. |
+| `ConsoleLogStreaming.SignalR` | Optional SignalR realtime hub and subscription manager. |
+| `ConsoleLogStreaming.AspNetCore` | Convenience package that composes Minimal API endpoints and SignalR. |
+| `ConsoleLogStreaming.Persistence.Sqlite` | Optional durable store for redacted console lines with retention. |
 
 ## Safety Model
 
@@ -63,13 +67,13 @@ library for reusable in-app diagnostics surfaces.
 ## Core Usage
 
 ```csharp
-using ConsoleLogStream.Core;
-using ConsoleLogStream.Core.DependencyInjection;
-using ConsoleLogStream.Core.Models;
+using ConsoleLogStreaming.Core;
+using ConsoleLogStreaming.Core.DependencyInjection;
+using ConsoleLogStreaming.Core.Models;
 using Microsoft.Extensions.DependencyInjection;
 
 await using var services = new ServiceCollection()
-    .AddConsoleLogStream(options =>
+    .AddConsoleLogStreaming(options =>
     {
         options.SourceId = "worker-1";
         options.RecentCapacity = 1000;
@@ -96,23 +100,67 @@ var recent = await provider.GetRecentAsync(new ConsoleLogFilter
     Limit = 50
 });
 
+var sources = services.GetRequiredService<IConsoleLogSourceRegistry>();
+sources.SourceChanged += source =>
+{
+    // Notify clients when sources appear or move between connected/stale states.
+};
+
 await capture.StopAsync();
+```
+
+For app hosts that want managed process-wide capture tied to `IHostedService`,
+use the host registration. It exposes the same host-owned provider, source
+registry, redaction pipeline, formatter, and capture service through DI:
+
+```csharp
+builder.Services.AddConsoleLogStreamingHost(options =>
+{
+    options.ServiceName = "orders-worker";
+    options.RecentCapacity = 5000;
+});
+```
+
+Register `IConsoleLogMetadataAccessor` before `AddConsoleLogStreamingHost` to add
+per-line metadata. Register a custom `IConsoleLogProvider` before it when you
+want the process-wide host to write to your own backend.
+
+For advanced hosts that need to build their own line formatter or metadata
+adapter, the core package also exposes the raw process-wide hook:
+
+```csharp
+using ConsoleLogStreaming.Core.Capture;
+
+ConsoleStreamHook.Install();
+
+using var subscription = ConsoleStreamHook.Subscribe(chunk =>
+{
+    ConsoleStreamHook.SuppressCapture = true;
+    try
+    {
+        // Forward chunk.Text to your own buffer, provider, or transport here.
+    }
+    finally
+    {
+        ConsoleStreamHook.SuppressCapture = false;
+    }
+});
 ```
 
 ## ASP.NET Core Usage
 
 ```csharp
-using ConsoleLogStream.AspNetCore.DependencyInjection;
-using ConsoleLogStream.Core.DependencyInjection;
+using ConsoleLogStreaming.AspNetCore.DependencyInjection;
+using ConsoleLogStreaming.Core.DependencyInjection;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddConsoleLogStream(options =>
+builder.Services.AddConsoleLogStreaming(options =>
 {
     options.ServiceName = "orders-api";
 });
 
-builder.Services.AddConsoleLogStreamAspNetCore(options =>
+builder.Services.AddConsoleLogStreamingAspNetCore(options =>
 {
     options.AuthorizationPolicy = "diagnostics.console";
     options.RecentPath = "/diagnostics/console-logs/recent";
@@ -121,7 +169,7 @@ builder.Services.AddConsoleLogStreamAspNetCore(options =>
 });
 
 var app = builder.Build();
-app.MapConsoleLogStream();
+app.MapConsoleLogStreaming();
 
 await app.Services.GetRequiredService<IConsoleLogCapture>().StartAsync();
 await app.RunAsync();
@@ -129,23 +177,23 @@ await app.RunAsync();
 
 Endpoints:
 
-- `GET /diagnostics/console-logs/recent`
+- `POST /diagnostics/console-logs/recent`
 - `GET /diagnostics/console-logs/sources`
 - SignalR hub: `/hubs/console-logs`
 
 The hub exposes a streaming method:
 
 ```csharp
-var channel = await connection.StreamAsChannelAsync<ConsoleLogStreamItem>(
-    "Stream",
+var channel = await connection.StreamAsChannelAsync<ConsoleLogStreamingItem>(
+    "StreamAsync",
     new ConsoleLogFilter { Query = "startup", Limit = 100 });
 ```
 
 It also supports push-style methods:
 
-- `Subscribe(ConsoleLogFilter filter)`
-- `UpdateFilter(ConsoleLogFilter filter)`
-- `Unsubscribe()`
+- `SubscribeAsync(ConsoleLogFilter filter)`
+- `UpdateFilterAsync(ConsoleLogFilter filter)`
+- `UnsubscribeAsync()`
 
 ## SQLite Persistence
 
@@ -153,10 +201,10 @@ SQLite persistence is optional and intended for short-term troubleshooting, not
 compliance audit logging.
 
 ```csharp
-using ConsoleLogStream.Persistence.Sqlite.DependencyInjection;
+using ConsoleLogStreaming.Persistence.Sqlite.DependencyInjection;
 
-builder.Services.AddConsoleLogStream();
-builder.Services.AddConsoleLogStreamSqlite(options =>
+builder.Services.AddConsoleLogStreaming();
+builder.Services.AddConsoleLogStreamingSqlite(options =>
 {
     options.ConnectionString = "Data Source=console-logs.db";
     options.MaxAge = TimeSpan.FromDays(7);
@@ -178,14 +226,15 @@ Recent queries and live subscriptions use `ConsoleLogFilter`:
 - `From`
 - `To`
 - `Limit`
+- `Metadata`
 
 Providers clamp requested limits to configured maximums.
 
 ## Build
 
 ```sh
-dotnet build ConsoleLogStream.slnx
-dotnet test ConsoleLogStream.slnx
+dotnet build ConsoleLogStreaming.slnx
+dotnet test ConsoleLogStreaming.slnx
 ```
 
 ## Package Publishing
@@ -212,15 +261,15 @@ packs, and uploads artifacts, but skips the NuGet.org publish step.
 
 ```text
 src/
-├── ConsoleLogStream.Core/
-├── ConsoleLogStream.AspNetCore/
-└── ConsoleLogStream.Persistence.Sqlite/
+├── ConsoleLogStreaming.Core/
+├── ConsoleLogStreaming.AspNetCore/
+└── ConsoleLogStreaming.Persistence.Sqlite/
 
 test/
-└── ConsoleLogStream.Tests/
+└── ConsoleLogStreaming.Tests/
 
 samples/
-└── ConsoleLogStream.Sample.AspNetCore/
+└── ConsoleLogStreaming.Sample.AspNetCore/
 ```
 
 ## License
