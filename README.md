@@ -239,27 +239,81 @@ dotnet test ConsoleLogStreaming.slnx
 
 ## Samples
 
-The `samples/` folder includes framework-specific UIs that all stream the same
-backend console capture surface:
+The repository includes three runnable UI samples that all use the same backend
+console streaming surface. Each sample starts its own ASP.NET Core host,
+captures managed stdout/stderr, persists redacted lines to a local SQLite
+database, backfills recent output, and streams live events through SignalR.
 
-- `ConsoleLogStreaming.Sample.Blazor`
-- `ConsoleLogStreaming.Sample.React`
-- `ConsoleLogStreaming.Sample.Vanilla`
+| Sample | Best for | Project |
+|--------|----------|---------|
+| Blazor Server | A fully .NET diagnostics surface with Razor components and server-side interactivity. | `samples/ConsoleLogStreaming.Sample.Blazor` |
+| React | A static React frontend served by ASP.NET Core without requiring an npm install. | `samples/ConsoleLogStreaming.Sample.React` |
+| Vanilla HTML + JavaScript | The smallest browser integration using plain HTML, CSS, JavaScript, and the SignalR client. | `samples/ConsoleLogStreaming.Sample.Vanilla` |
 
-Each frontend sample maps the default recent/source endpoints, the SignalR hub
-at `/hubs/console-logs`, and demo write endpoints under `/demo/*`. See
-[`samples/README.md`](samples/README.md) for the shared plan, slices, and UI
-behavior contract.
+### Blazor Server
 
-Screenshots are available in
-[`docs/sample-screenshots.md`](docs/sample-screenshots.md).
+![Blazor console stream sample](docs/sample-screenshots/blazor-console-stream.png)
 
-Run a sample with:
+The Blazor sample uses interactive server components for the dashboard and
+regular ASP.NET Core endpoints for the console stream API. It is useful when you
+want the diagnostics UI to live inside an existing .NET admin app without adding
+a separate frontend toolchain.
 
 ```sh
 dotnet run --project samples/ConsoleLogStreaming.Sample.Blazor
+```
+
+### React
+
+![React console stream sample](docs/sample-screenshots/react-console-stream.png)
+
+The React sample serves prebuilt static assets from `wwwroot` and connects to
+the same SignalR hub from the browser. It demonstrates how a JavaScript frontend
+can consume recent backfill, source metadata, and live stdout/stderr updates from
+the shared ASP.NET Core package.
+
+```sh
 dotnet run --project samples/ConsoleLogStreaming.Sample.React
+```
+
+### Vanilla HTML + JavaScript
+
+![Vanilla HTML and JavaScript console stream sample](docs/sample-screenshots/vanilla-console-stream.png)
+
+The vanilla sample keeps the browser side intentionally small: static HTML,
+CSS, and JavaScript call the diagnostics endpoints directly and subscribe to the
+SignalR stream. Use it as the clearest reference for integrating the API without
+a framework.
+
+```sh
 dotnet run --project samples/ConsoleLogStreaming.Sample.Vanilla
+```
+
+All three UI samples expose the same runtime behavior:
+
+- recent console line backfill on load and after filter changes
+- live stdout/stderr streaming through SignalR
+- connected/stale source status
+- query and stream filtering
+- demo write buttons for stdout, stderr, and mixed bursts
+
+They also map the same backend routes:
+
+- `GET /diagnostics/console-logs/recent?limit=100`
+- `GET /diagnostics/console-logs/sources`
+- SignalR hub at `/hubs/console-logs`
+- demo write endpoints under `/demo/*`
+
+For more sample notes, see [`samples/README.md`](samples/README.md). The
+screenshot gallery is also available at
+[`docs/sample-screenshots.md`](docs/sample-screenshots.md).
+
+To build all sample projects:
+
+```sh
+dotnet build samples/ConsoleLogStreaming.Sample.Blazor
+dotnet build samples/ConsoleLogStreaming.Sample.React
+dotnet build samples/ConsoleLogStreaming.Sample.Vanilla
 ```
 
 ## Package Publishing
