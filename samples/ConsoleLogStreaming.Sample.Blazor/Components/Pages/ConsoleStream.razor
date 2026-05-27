@@ -1,0 +1,397 @@
+@page "/"
+@using System.Globalization
+@using System.Net.Http.Json
+@using LogStream = ConsoleLogStreaming.Contracts.ConsoleLogStreaming
+@using Microsoft.AspNetCore.SignalR.Client
+@implements IAsyncDisposable
+@inject IHttpClientFactory HttpClientFactory
+@inject NavigationManager Navigation
+
+<PageTitle>Console Log Stream</PageTitle>
+
+<main class="shell">
+    <section class="hero">
+        <div>
+            <p class="eyebrow">ConsoleLogStreaming sample</p>
+            <h1>Backend console stream</h1>
+            <p class="lede">A Blazor UI reading recent logs over HTTP and live stdout/stderr events through the default SignalR hub.</p>
+        </div>
+
+        <div class="status-panel">
+            <div class="status-dot @ConnectionClass"></div>
+            <div>
+                <span>Live connection</span>
+                <strong>@ConnectionLabel</strong>
+            </div>
+        </div>
+    </section>
+
+    <section class="toolbar" aria-label="Console stream controls">
+        <label class="field query-field">
+            <span>Query</span>
+            <input @bind="query" @bind:event="oninput" @onkeydown="HandleQueryKeyDown" placeholder="Filter text, source, service" />
+        </label>
+
+        <label class="field">
+            <span>Stream</span>
+            <select @bind="streamFilter">
+                <option value="">All streams</option>
+                <option value="@LogStream.Stdout">Stdout</option>
+                <option value="@LogStream.Stderr">Stderr</option>
+            </select>
+        </label>
+
+        <label class="field">
+            <span>Source</span>
+            <select @bind="sourceFilter">
+                <option value="">All sources</option>
+                @foreach (var source in sources)
+                {
+                    <option value="@source.Id">@DisplaySource(source)</option>
+                }
+            </select>
+        </label>
+
+        <div class="toolbar-actions">
+            <button type="button" class="primary" @onclick="ApplyFiltersAsync" disabled="@isBusy">Apply</button>
+            <button type="button" @onclick="RefreshRecentAsync" disabled="@isBusy">Refresh</button>
+        </div>
+    </section>
+
+    <section class="metrics" aria-label="Console stream summary">
+        <article>
+            <span>Rows shown</span>
+            <strong>@lines.Count</strong>
+        </article>
+        <article>
+            <span>Live rows</span>
+            <strong>@liveRowsReceived</strong>
+        </article>
+        <article>
+            <span>Dropped</span>
+            <strong>@droppedRows</strong>
+        </article>
+        <article>
+            <span>Last event</span>
+            <strong>@LastEventLabel</strong>
+        </article>
+    </section>
+
+    <section class="demo-actions" aria-label="Demo console writers">
+        <div>
+            <h2>Write demo lines</h2>
+            <p>Use these actions to generate backend console output and watch it arrive below.</p>
+        </div>
+        <div class="button-row">
+            <button type="button" @onclick='() => WriteDemoAsync("/demo/stdout")' disabled="@isWriting">Stdout</button>
+            <button type="button" @onclick='() => WriteDemoAsync("/demo/stderr")' disabled="@isWriting">Stderr</button>
+            <button type="button" class="primary" @onclick='() => WriteDemoAsync("/demo/burst")' disabled="@isWriting">Backend burst</button>
+        </div>
+    </section>
+
+    @if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <section class="notice" role="alert">@errorMessage</section>
+    }
+
+    <section class="log-card" aria-label="Console log rows">
+        <header class="log-header">
+            <span>Time</span>
+            <span>Stream</span>
+            <span>Source</span>
+            <span>Message</span>
+        </header>
+
+        <div class="log-rows">
+            @if (lines.Count == 0)
+            {
+                <div class="empty-state">
+                    <h2>No matching console lines yet</h2>
+                    <p>Write a demo line or relax the filters to populate the stream.</p>
+                </div>
+            }
+            else
+            {
+                @foreach (var line in lines)
+                {
+                    <article class="log-row @StreamClass(line.Stream)">
+                        <time title="@line.ReceivedAt.ToString("O", CultureInfo.InvariantCulture)">@FormatTime(line.ReceivedAt)</time>
+                        <span class="stream-pill">@line.Stream</span>
+                        <span class="source-name" title="@line.Source.Id">@DisplaySource(line.Source)</span>
+                        <code>@line.Text</code>
+                    </article>
+                }
+            }
+        </div>
+    </section>
+</main>
+
+@code {
+    private const int MaxRows = 160;
+    private readonly List<ConsoleLogLine> lines = [];
+    private readonly HashSet<string> lineIds = new(StringComparer.Ordinal);
+    private HttpClient httpClient = default!;
+    private IReadOnlyCollection<ConsoleLogSource> sources = [];
+    private HubConnection? hubConnection;
+    private string query = "";
+    private string sourceFilter = "";
+    private LogStream? streamFilter;
+    private string? errorMessage;
+    private bool isBusy;
+    private bool isWriting;
+    private int liveRowsReceived;
+    private long droppedRows;
+    private DateTimeOffset? lastEventAt;
+
+    private string ConnectionLabel => hubConnection?.State.ToString() ?? "Starting";
+
+    private string ConnectionClass => hubConnection?.State switch
+    {
+        HubConnectionState.Connected => "connected",
+        HubConnectionState.Reconnecting => "reconnecting",
+        _ => "disconnected"
+    };
+
+    private string LastEventLabel => lastEventAt is null
+        ? "None"
+        : FormatTime(lastEventAt.Value);
+
+    protected override async Task OnInitializedAsync()
+    {
+        httpClient = HttpClientFactory.CreateClient();
+        httpClient.BaseAddress = new Uri(Navigation.BaseUri);
+
+        await RefreshSourcesAsync();
+        await RefreshRecentAsync();
+        await ConnectLiveStreamAsync();
+    }
+
+    private async Task ConnectLiveStreamAsync()
+    {
+        hubConnection = new HubConnectionBuilder()
+            .WithUrl(Navigation.ToAbsoluteUri("/hubs/console-logs"))
+            .WithAutomaticReconnect()
+            .Build();
+
+        hubConnection.On<ConsoleLogLine>("ReceiveConsoleLogLineAsync", line =>
+            InvokeAsync(() => AddLiveLine(line)));
+        hubConnection.On<ConsoleLogDroppedSummary>("ReceiveDroppedLinesAsync", summary =>
+            InvokeAsync(() => AddDroppedSummary(summary)));
+        hubConnection.On<ConsoleLogSource>("ReceiveSourceChangedAsync", source =>
+            InvokeAsync(() => UpsertSource(source)));
+
+        hubConnection.Reconnecting += _ =>
+            InvokeAsync(StateHasChanged);
+        hubConnection.Reconnected += _ =>
+            InvokeAsync(async () =>
+            {
+                if (hubConnection is not null)
+                    await hubConnection.InvokeAsync("SubscribeAsync", BuildLiveFilter());
+
+                StateHasChanged();
+            });
+        hubConnection.Closed += _ =>
+            InvokeAsync(StateHasChanged);
+
+        await hubConnection.StartAsync();
+        await hubConnection.InvokeAsync("SubscribeAsync", BuildLiveFilter());
+    }
+
+    private async Task ApplyFiltersAsync()
+    {
+        await RefreshRecentAsync();
+
+        if (hubConnection?.State == HubConnectionState.Connected)
+            await hubConnection.InvokeAsync("UpdateFilterAsync", BuildLiveFilter());
+    }
+
+    private async Task RefreshRecentAsync()
+    {
+        isBusy = true;
+        errorMessage = null;
+
+        try
+        {
+            var result = await httpClient.GetFromJsonAsync<RecentConsoleLogsResult>(BuildRecentUri());
+            lines.Clear();
+            lineIds.Clear();
+
+            if (result?.Items is not null)
+            {
+                foreach (var line in result.Items.TakeLast(MaxRows))
+                    AddLine(line, isLive: false);
+            }
+
+            if (result?.Sources is not null)
+                sources = result.Sources.OrderBy(source => DisplaySource(source), StringComparer.OrdinalIgnoreCase).ToArray();
+
+            droppedRows = result?.Dropped?.Sum(summary => summary.Count) ?? droppedRows;
+        }
+        catch (Exception exception) when (exception is HttpRequestException or NotSupportedException)
+        {
+            errorMessage = $"Unable to load recent logs: {exception.Message}";
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private async Task RefreshSourcesAsync()
+    {
+        try
+        {
+            sources = await httpClient.GetFromJsonAsync<ConsoleLogSource[]>("/diagnostics/console-logs/sources") ?? [];
+        }
+        catch (HttpRequestException exception)
+        {
+            errorMessage = $"Unable to load sources: {exception.Message}";
+        }
+    }
+
+    private async Task WriteDemoAsync(string path)
+    {
+        isWriting = true;
+        errorMessage = null;
+
+        try
+        {
+            await WriteDemoLinesAsync(path);
+        }
+        catch (OperationCanceledException exception)
+        {
+            errorMessage = $"Unable to write demo line: {exception.Message}";
+        }
+        finally
+        {
+            isWriting = false;
+        }
+    }
+
+    private static async Task WriteDemoLinesAsync(string path)
+    {
+        if (path.EndsWith("/stdout", StringComparison.OrdinalIgnoreCase))
+        {
+            Console.WriteLine("Demo stdout line: request processed in {0} ms", Random.Shared.Next(12, 140));
+            return;
+        }
+
+        if (path.EndsWith("/stderr", StringComparison.OrdinalIgnoreCase))
+        {
+            Console.Error.WriteLine("Demo stderr line: payment retry failed with token=sample-secret-{0}", Random.Shared.Next(100, 999));
+            return;
+        }
+
+        for (var i = 1; i <= 8; i++)
+        {
+            Console.WriteLine("Burst stdout {0}/8: queued job {1:n0}", i, Random.Shared.Next(1_000, 9_999));
+
+            if (i % 3 == 0)
+                Console.Error.WriteLine("Burst stderr {0}/8: transient backend warning", i);
+
+            await Task.Delay(90);
+        }
+    }
+
+    private async Task HandleQueryKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter")
+            await ApplyFiltersAsync();
+    }
+
+    private void AddLiveLine(ConsoleLogLine line)
+    {
+        AddLine(line, isLive: true);
+        StateHasChanged();
+    }
+
+    private void AddLine(ConsoleLogLine line, bool isLive)
+    {
+        if (!lineIds.Add(line.Id))
+            return;
+
+        lines.Add(line);
+        lastEventAt = line.ReceivedAt;
+
+        if (isLive)
+            liveRowsReceived++;
+
+        while (lines.Count > MaxRows)
+        {
+            lineIds.Remove(lines[0].Id);
+            lines.RemoveAt(0);
+        }
+    }
+
+    private void AddDroppedSummary(ConsoleLogDroppedSummary summary)
+    {
+        droppedRows += summary.Count;
+        lastEventAt = DateTimeOffset.UtcNow;
+        StateHasChanged();
+    }
+
+    private void UpsertSource(ConsoleLogSource source)
+    {
+        sources = sources
+            .Where(existing => !string.Equals(existing.Id, source.Id, StringComparison.OrdinalIgnoreCase))
+            .Append(source)
+            .OrderBy(item => DisplaySource(item), StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        StateHasChanged();
+    }
+
+    private ConsoleLogFilter BuildLiveFilter()
+    {
+        return new ConsoleLogFilter
+        {
+            Query = string.IsNullOrWhiteSpace(query) ? null : query.Trim(),
+            SourceId = string.IsNullOrWhiteSpace(sourceFilter) ? null : sourceFilter,
+            Stream = streamFilter
+        };
+    }
+
+    private string BuildRecentUri()
+    {
+        var parameters = new Dictionary<string, string?>
+        {
+            ["limit"] = "120",
+            ["query"] = string.IsNullOrWhiteSpace(query) ? null : query.Trim(),
+            ["sourceId"] = string.IsNullOrWhiteSpace(sourceFilter) ? null : sourceFilter,
+            ["stream"] = streamFilter?.ToString()
+        };
+
+        var queryString = string.Join("&", parameters
+            .Where(parameter => !string.IsNullOrWhiteSpace(parameter.Value))
+            .Select(parameter => $"{Uri.EscapeDataString(parameter.Key)}={Uri.EscapeDataString(parameter.Value!)}"));
+
+        return string.IsNullOrWhiteSpace(queryString)
+            ? "/diagnostics/console-logs/recent"
+            : $"/diagnostics/console-logs/recent?{queryString}";
+    }
+
+    private static string FormatTime(DateTimeOffset timestamp)
+    {
+        return timestamp.ToLocalTime().ToString("HH:mm:ss.fff", CultureInfo.CurrentCulture);
+    }
+
+    private static string DisplaySource(ConsoleLogSource source)
+    {
+        if (!string.IsNullOrWhiteSpace(source.DisplayName))
+            return source.DisplayName;
+
+        return string.IsNullOrWhiteSpace(source.Id) ? "Unknown source" : source.Id;
+    }
+
+    private static string StreamClass(LogStream stream)
+    {
+        return stream == LogStream.Stderr ? "stderr" : "stdout";
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (hubConnection is not null)
+            await hubConnection.DisposeAsync();
+
+        httpClient?.Dispose();
+    }
+}

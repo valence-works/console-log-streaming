@@ -5,6 +5,7 @@
     <PackageId>ConsoleLogStreaming.Contracts</PackageId>
     <Description>Shared ConsoleLogStreaming DTOs and mapping contracts for HTTP and realtime transports.</Description>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>$(PackageTags);contracts;dto;transport</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>

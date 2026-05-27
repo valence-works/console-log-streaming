@@ -1,6 +1,14 @@
 <Solution>
   <Folder Name="/samples/">
     <Project Path="samples/ConsoleLogStreaming.Sample.AspNetCore/ConsoleLogStreaming.Sample.AspNetCore.csproj" />
+    <Project Path="samples/ConsoleLogStreaming.Sample.Blazor/ConsoleLogStreaming.Sample.Blazor.csproj" />
+    <Project Path="samples/ConsoleLogStreaming.Sample.React/ConsoleLogStreaming.Sample.React.csproj" />
+    <Project Path="samples/ConsoleLogStreaming.Sample.Vanilla/ConsoleLogStreaming.Sample.Vanilla.csproj" />
+    <File Path="samples/README.md" />
+  </Folder>
+  <Folder Name="/solution/">
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Packages.props" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/ConsoleLogStreaming.AspNetCore/ConsoleLogStreaming.AspNetCore.csproj" />

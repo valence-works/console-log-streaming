@@ -5,6 +5,7 @@
     <PackageId>ConsoleLogStreaming.Endpoints.MinimalApi</PackageId>
     <Description>Minimal API endpoints for ConsoleLogStreaming recent console logs and sources.</Description>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>$(PackageTags);aspnetcore;minimal-api;endpoints;http</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>

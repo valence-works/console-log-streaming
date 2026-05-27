@@ -5,6 +5,7 @@
     <PackageId>ConsoleLogStreaming.SignalR</PackageId>
     <Description>Optional SignalR realtime transport for ConsoleLogStreaming.</Description>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>$(PackageTags);signalr;realtime;hub</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>

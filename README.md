@@ -237,6 +237,28 @@ dotnet build ConsoleLogStreaming.slnx
 dotnet test ConsoleLogStreaming.slnx
 ```
 
+## Samples
+
+The `samples/` folder includes framework-specific UIs that all stream the same
+backend console capture surface:
+
+- `ConsoleLogStreaming.Sample.Blazor`
+- `ConsoleLogStreaming.Sample.React`
+- `ConsoleLogStreaming.Sample.Vanilla`
+
+Each frontend sample maps the default recent/source endpoints, the SignalR hub
+at `/hubs/console-logs`, and demo write endpoints under `/demo/*`. See
+[`samples/README.md`](samples/README.md) for the shared plan, slices, and UI
+behavior contract.
+
+Run a sample with:
+
+```sh
+dotnet run --project samples/ConsoleLogStreaming.Sample.Blazor
+dotnet run --project samples/ConsoleLogStreaming.Sample.React
+dotnet run --project samples/ConsoleLogStreaming.Sample.Vanilla
+```
+
 ## Package Publishing
 
 The base package version is controlled by `VersionPrefix` in
@@ -269,7 +291,10 @@ test/
 └── ConsoleLogStreaming.Tests/
 
 samples/
-└── ConsoleLogStreaming.Sample.AspNetCore/
+├── ConsoleLogStreaming.Sample.AspNetCore/
+├── ConsoleLogStreaming.Sample.Blazor/
+├── ConsoleLogStreaming.Sample.React/
+└── ConsoleLogStreaming.Sample.Vanilla/
 ```
 
 ## License

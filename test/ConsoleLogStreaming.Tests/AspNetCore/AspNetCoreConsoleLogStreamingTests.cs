@@ -22,8 +22,7 @@ public sealed class AspNetCoreConsoleLogStreamingTests
         await provider.PublishAsync(new ConsoleLogStreaming.Core.Models.ConsoleLogLine { Source = source, Stream = ConsoleLogStreaming.Core.Models.ConsoleStream.Stdout, Text = "from endpoint" });
 
         var client = app.GetTestClient();
-        var response = await client.PostAsJsonAsync("/diagnostics/console-logs/recent", new ConsoleLogFilter { Limit = 10 });
-        var result = await response.Content.ReadFromJsonAsync<RecentConsoleLogsResult>();
+        var result = await client.GetFromJsonAsync<RecentConsoleLogsResult>("/diagnostics/console-logs/recent?limit=10");
 
         Assert.NotNull(result);
         Assert.Contains(result.Items, x => x.Text == "from endpoint");

@@ -18,7 +18,7 @@ public sealed class RecentConsoleLogsEndpoint(
     /// <inheritdoc />
     public override void Configure()
     {
-        Post(options.Value.RecentPath);
+        Get(options.Value.RecentPath);
 
         if (!string.IsNullOrWhiteSpace(options.Value.AuthorizationPolicy))
             Options(x => x.RequireAuthorization(options.Value.AuthorizationPolicy));

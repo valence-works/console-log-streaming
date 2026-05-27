@@ -5,6 +5,7 @@
     <PackageId>ConsoleLogStreaming.AspNetCore</PackageId>
     <Description>ASP.NET Core endpoints and SignalR hub adapter for ConsoleLogStreaming.</Description>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>$(PackageTags);aspnetcore;minimal-api;signalr;endpoints</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>

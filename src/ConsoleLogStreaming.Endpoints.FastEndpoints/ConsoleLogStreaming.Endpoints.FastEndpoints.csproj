@@ -5,6 +5,7 @@
     <PackageId>ConsoleLogStreaming.Endpoints.FastEndpoints</PackageId>
     <Description>FastEndpoints endpoints for ConsoleLogStreaming recent console logs and sources.</Description>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>$(PackageTags);aspnetcore;fastendpoints;endpoints;http</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>

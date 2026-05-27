@@ -5,6 +5,7 @@
     <PackageId>ConsoleLogStreaming.Core</PackageId>
     <Description>Framework-neutral .NET console log capture, redaction, buffering, and live subscription primitives.</Description>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>$(PackageTags);redaction;buffering;subscriptions</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>

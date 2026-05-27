@@ -5,6 +5,7 @@
     <PackageId>ConsoleLogStreaming.Persistence.Sqlite</PackageId>
     <Description>Optional SQLite persistence provider for redacted ConsoleLogStreaming events.</Description>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>$(PackageTags);sqlite;persistence;storage</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>

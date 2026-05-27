@@ -10,11 +10,16 @@
     <RepositoryUrl>https://github.com/valence-works/console-log-stream</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageIcon>icon.png</PackageIcon>
     <PackageProjectUrl>https://github.com/valence-works/console-log-stream</PackageProjectUrl>
-    <PackageTags>console;stdout;stderr;diagnostics;streaming;signalr;sqlite;logging</PackageTags>
+    <PackageTags>console;stdout;stderr;diagnostics;streaming;logging</PackageTags>
     <Authors>Valence Works</Authors>
     <Company>Valence Works</Company>
     <Copyright>Copyright (c) Valence Works</Copyright>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)icon.png" Pack="true" PackagePath="\" />
+  </ItemGroup>
 
 </Project>

@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Console Log Streaming Vanilla Sample</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="shell">
+    <section class="hero" aria-labelledby="page-title">
+      <div>
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <span>ConsoleLogStreaming</span>
+        </div>
+        <h1 id="page-title">Live backend console stream</h1>
+        <p>
+          A vanilla HTML, CSS, and JavaScript sample that backfills recent output, then keeps stdout
+          and stderr flowing through the default SignalR hub.
+        </p>
+      </div>
+
+      <div class="connection-card" aria-label="Connection status">
+        <div class="status-row">
+          <span class="status-light" id="status-light" aria-hidden="true"></span>
+          <div>
+            <strong id="connection-status">Connecting</strong>
+            <span id="connection-detail">Opening SignalR websocket</span>
+          </div>
+        </div>
+        <dl class="metrics">
+          <div>
+            <dt>Live</dt>
+            <dd id="metric-live">0</dd>
+          </div>
+          <div>
+            <dt>Errors</dt>
+            <dd id="metric-errors">0</dd>
+          </div>
+          <div>
+            <dt>Sources</dt>
+            <dd id="metric-sources">0</dd>
+          </div>
+        </dl>
+      </div>
+    </section>
+
+    <section class="toolbar" aria-label="Console stream controls">
+      <label class="field">
+        <span>Source</span>
+        <select id="source-filter">
+          <option value="">All sources</option>
+        </select>
+      </label>
+
+      <fieldset class="segmented" aria-label="Stream filter">
+        <label>
+          <input type="radio" name="stream-filter" value="" checked>
+          <span>All</span>
+        </label>
+        <label>
+          <input type="radio" name="stream-filter" value="0">
+          <span>stdout</span>
+        </label>
+        <label>
+          <input type="radio" name="stream-filter" value="1">
+          <span>stderr</span>
+        </label>
+      </fieldset>
+
+      <label class="field search-field">
+        <span>Query</span>
+        <input id="query-filter" type="search" autocomplete="off" placeholder="Filter text">
+      </label>
+
+      <div class="actions" aria-label="Demo log writers">
+        <button type="button" class="button primary" data-demo="stdout">Write stdout</button>
+        <button type="button" class="button danger" data-demo="stderr">Write stderr</button>
+        <button type="button" class="button" data-demo="burst">Backend burst</button>
+      </div>
+    </section>
+
+    <section class="console-panel" aria-labelledby="console-title">
+      <div class="panel-header">
+        <div>
+          <h2 id="console-title">Console output</h2>
+          <p id="backfill-summary">Loading recent lines</p>
+        </div>
+        <div class="panel-tools">
+          <label class="toggle">
+            <input id="auto-scroll" type="checkbox" checked>
+            <span>Auto-scroll</span>
+          </label>
+          <button type="button" class="icon-button" id="refresh-recent" aria-label="Refresh recent lines" title="Refresh recent lines">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M20 12a8 8 0 1 1-2.34-5.66"></path>
+              <path d="M20 4v5h-5"></path>
+            </svg>
+          </button>
+          <button type="button" class="icon-button" id="clear-lines" aria-label="Clear visible lines" title="Clear visible lines">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3 6h18"></path>
+              <path d="M8 6V4h8v2"></path>
+              <path d="M6 6l1 15h10l1-15"></path>
+              <path d="M10 11v6"></path>
+              <path d="M14 11v6"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="log-viewport" id="log-viewport" aria-live="polite" aria-busy="true">
+        <div class="empty-state" id="empty-state">
+          <strong>No console lines yet</strong>
+          <span>Use the demo buttons or write to Console.Out / Console.Error from the backend.</span>
+        </div>
+        <ol class="log-list" id="log-list"></ol>
+      </div>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>

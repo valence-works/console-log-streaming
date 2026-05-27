@@ -20,12 +20,26 @@ public static class ConsoleLogStreamingMinimalApiEndpointRouteBuilderExtensions
     {
         var options = endpoints.ServiceProvider.GetRequiredService<IOptions<ConsoleLogStreamingMinimalApiOptions>>().Value;
 
-        var recent = endpoints.MapPost(options.RecentPath, async (
-            ConsoleLogFilter filter,
+        var recent = endpoints.MapGet(options.RecentPath, async (
+            string? sourceId,
+            ConsoleLogStreaming.Contracts.ConsoleLogStreaming? stream,
+            string? query,
+            DateTimeOffset? from,
+            DateTimeOffset? to,
+            int? limit,
             IConsoleLogProvider provider,
             IConsoleLogStreamingApiMapper mapper,
             CancellationToken cancellationToken) =>
         {
+            var filter = new ConsoleLogFilter
+            {
+                SourceId = sourceId,
+                Stream = stream,
+                Query = query,
+                From = from,
+                To = to,
+                Limit = limit
+            };
             var result = await provider.GetRecentAsync(mapper.ToCore(filter), cancellationToken).ConfigureAwait(false);
             return Results.Ok(mapper.ToApi(result));
         });
