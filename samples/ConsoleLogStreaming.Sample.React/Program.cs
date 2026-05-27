@@ -1,9 +1,12 @@
 using ConsoleLogStreaming.AspNetCore.DependencyInjection;
 using ConsoleLogStreaming.Core;
+using ConsoleLogStreaming.Core.Capture;
 using ConsoleLogStreaming.Core.DependencyInjection;
 using ConsoleLogStreaming.Persistence.Sqlite.DependencyInjection;
 using ConsoleLogLine = ConsoleLogStreaming.Core.Models.ConsoleLogLine;
 using ConsoleStream = ConsoleLogStreaming.Core.Models.ConsoleStream;
+
+ConsoleStreamHook.Install();
 
 var builder = WebApplication.CreateBuilder(args);
 

@@ -251,6 +251,9 @@ at `/hubs/console-logs`, and demo write endpoints under `/demo/*`. See
 [`samples/README.md`](samples/README.md) for the shared plan, slices, and UI
 behavior contract.
 
+Screenshots are available in
+[`docs/sample-screenshots.md`](docs/sample-screenshots.md).
+
 Run a sample with:
 
 ```sh
