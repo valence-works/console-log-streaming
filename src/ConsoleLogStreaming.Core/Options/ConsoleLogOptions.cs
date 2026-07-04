@@ -41,6 +41,16 @@ public sealed class ConsoleLogOptions
     public TimeSpan SourceHeartbeatTimeout { get; set; } = TimeSpan.FromSeconds(30);
 
     /// <summary>
+    /// Minimum interval between live subscription batch releases. A batch is the run of items
+    /// synchronously available from the subscriber buffer; the gate applies only when the buffer
+    /// was drained and the next item arrives asynchronously, so sustained floods are never
+    /// throttled and bursts drain together. Breaks request/log feedback loops (e.g. per-request
+    /// logging over a long-polling transport, where each pushed line completes the next pending
+    /// poll 1:1). Zero (default) releases items as soon as they are available.
+    /// </summary>
+    public TimeSpan StreamReleaseInterval { get; set; } = TimeSpan.Zero;
+
+    /// <summary>
     /// Preserve ANSI escape sequences instead of stripping them.
     /// </summary>
     public bool PreserveAnsi { get; set; }

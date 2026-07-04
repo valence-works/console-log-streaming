@@ -17,6 +17,8 @@ public sealed class InMemoryConsoleLogProvider : IConsoleLogProvider, IConsoleLo
     private readonly int _recentCapacity;
     private readonly int _subscriberCapacity;
     private readonly int _maxRecentQuerySize;
+    private readonly TimeSpan _streamReleaseInterval;
+    private readonly TimeProvider _timeProvider;
     private readonly IConsoleLogRedactionPipeline _redactionPipeline;
     private readonly IConsoleLogSourceRegistry _sourceRegistry;
     private readonly Queue<ConsoleLogLine> _recent = new();
@@ -29,12 +31,15 @@ public sealed class InMemoryConsoleLogProvider : IConsoleLogProvider, IConsoleLo
     public InMemoryConsoleLogProvider(
         IOptions<ConsoleLogOptions> options,
         IConsoleLogRedactionPipeline redactionPipeline,
-        IConsoleLogSourceRegistry sourceRegistry)
+        IConsoleLogSourceRegistry sourceRegistry,
+        TimeProvider? timeProvider = null)
     {
         var value = options.Value;
         _recentCapacity = Math.Max(1, value.RecentCapacity);
         _subscriberCapacity = Math.Max(1, value.SubscriberCapacity);
         _maxRecentQuerySize = Math.Max(1, value.MaxRecentQuerySize);
+        _streamReleaseInterval = value.StreamReleaseInterval;
+        _timeProvider = timeProvider ?? TimeProvider.System;
         _redactionPipeline = redactionPipeline;
         _sourceRegistry = sourceRegistry;
     }
@@ -112,13 +117,39 @@ public sealed class InMemoryConsoleLogProvider : IConsoleLogProvider, IConsoleLo
         ConsoleLogFilter filter,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var subscriber = new Subscriber(filter, _subscriberCapacity);
+        var subscriber = new Subscriber(filter, _subscriberCapacity, _timeProvider);
         _subscribers[subscriber.Id] = subscriber;
 
         try
         {
-            await foreach (var item in subscriber.Channel.Reader.ReadAllAsync(cancellationToken).ConfigureAwait(false))
-                yield return item;
+            if (_streamReleaseInterval <= TimeSpan.Zero)
+            {
+                await foreach (var item in subscriber.Channel.Reader.ReadAllAsync(cancellationToken).ConfigureAwait(false))
+                    yield return item;
+                yield break;
+            }
+
+            // Time-gated batch releases: a batch is the run of items synchronously available from
+            // the subscriber channel; the gate applies only at the drained-buffer boundary, so a
+            // request/log feedback loop (one pushed line completing one pending long poll) is
+            // capped at one release per interval while floods and bursts drain ungated.
+            var reader = subscriber.Channel.Reader;
+            long? lastReleaseTimestamp = null;
+
+            while (await reader.WaitToReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                if (lastReleaseTimestamp is { } previousRelease)
+                {
+                    var wait = _streamReleaseInterval - _timeProvider.GetElapsedTime(previousRelease);
+                    if (wait > TimeSpan.Zero)
+                        await Task.Delay(wait, _timeProvider, cancellationToken).ConfigureAwait(false);
+                }
+
+                lastReleaseTimestamp = _timeProvider.GetTimestamp();
+
+                while (reader.TryRead(out var item))
+                    yield return item;
+            }
         }
         finally
         {
@@ -148,7 +179,7 @@ public sealed class InMemoryConsoleLogProvider : IConsoleLogProvider, IConsoleLo
             _dropped.RemoveAt(0);
     }
 
-    private sealed class Subscriber(ConsoleLogFilter filter, int capacity)
+    private sealed class Subscriber(ConsoleLogFilter filter, int capacity, TimeProvider timeProvider)
     {
         private long _droppedCount;
         private DateTimeOffset? _firstDrop;
@@ -171,7 +202,7 @@ public sealed class InMemoryConsoleLogProvider : IConsoleLogProvider, IConsoleLo
             if (Channel.Writer.TryWrite(item))
                 return;
 
-            _firstDrop ??= DateTimeOffset.UtcNow;
+            _firstDrop ??= timeProvider.GetUtcNow();
             var dropped = Interlocked.Increment(ref _droppedCount);
             if (dropped % capacity != 0)
                 return;
@@ -183,7 +214,7 @@ public sealed class InMemoryConsoleLogProvider : IConsoleLogProvider, IConsoleLo
                 Reason = "subscriber-overflow",
                 Count = dropped,
                 From = _firstDrop,
-                To = DateTimeOffset.UtcNow
+                To = timeProvider.GetUtcNow()
             };
             Channel.Writer.TryWrite(ConsoleLogStreamingItem.FromDropped(summary));
         }
