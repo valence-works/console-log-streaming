@@ -20,6 +20,7 @@ public sealed class SqliteConsoleLogProvider : IConsoleLogProvider, IAsyncDispos
     private readonly IConsoleLogRedactionPipeline _redactionPipeline;
     private readonly IConsoleLogSourceRegistry _sourceRegistry;
     private readonly InMemoryConsoleLogProvider _liveProvider;
+    private readonly TimeProvider _timeProvider;
     private readonly Channel<ConsoleLogLine> _writeQueue;
     private readonly CancellationTokenSource _stop = new();
     private readonly Task _worker;
@@ -28,21 +29,28 @@ public sealed class SqliteConsoleLogProvider : IConsoleLogProvider, IAsyncDispos
     private int _disposed;
 
     /// <summary>
-    /// Initializes a new SQLite provider.
+    /// Initializes a new SQLite provider. The optional <paramref name="timeProvider"/> (default
+    /// <see cref="TimeProvider.System"/>) stamps received timestamps and retention cutoffs with
+    /// the same clock the wrapped live provider uses for release gating.
     /// </summary>
     public SqliteConsoleLogProvider(
         IOptions<SqliteConsoleLogOptions> options,
         IConsoleLogRedactionPipeline redactionPipeline,
         IConsoleLogSourceRegistry sourceRegistry,
-        InMemoryConsoleLogProvider liveProvider)
+        InMemoryConsoleLogProvider liveProvider,
+        TimeProvider? timeProvider = null)
     {
         _options = options.Value;
         _redactionPipeline = redactionPipeline;
         _sourceRegistry = sourceRegistry;
         _liveProvider = liveProvider;
+        _timeProvider = timeProvider ?? TimeProvider.System;
+        // Wait mode so TryWrite reports rejection when the queue is full (only TryWrite is used,
+        // so nothing ever blocks); DropWrite makes TryWrite return true while silently discarding
+        // the line, which would keep DroppedWriteCount forever at zero.
         _writeQueue = Channel.CreateBounded<ConsoleLogLine>(new BoundedChannelOptions(Math.Max(1, _options.WriteQueueCapacity))
         {
-            FullMode = BoundedChannelFullMode.DropWrite,
+            FullMode = BoundedChannelFullMode.Wait,
             SingleReader = true,
             SingleWriter = false
         });
@@ -63,7 +71,7 @@ public sealed class SqliteConsoleLogProvider : IConsoleLogProvider, IAsyncDispos
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var receivedAt = DateTimeOffset.UtcNow;
+        var receivedAt = _timeProvider.GetUtcNow();
         var redacted = _redactionPipeline.Redact(line with { ReceivedAt = receivedAt });
         redacted = redacted with { Source = _sourceRegistry.MarkSeen(redacted.Source, receivedAt) };
 
@@ -181,7 +189,7 @@ public sealed class SqliteConsoleLogProvider : IConsoleLogProvider, IAsyncDispos
         {
             await using var command = connection.CreateCommand();
             command.CommandText = "DELETE FROM console_log_lines WHERE received_at < $cutoff";
-            command.Parameters.AddWithValue("$cutoff", ToStorage(DateTimeOffset.UtcNow.Subtract(_options.MaxAge.Value)));
+            command.Parameters.AddWithValue("$cutoff", ToStorage(_timeProvider.GetUtcNow().Subtract(_options.MaxAge.Value)));
             await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
         }
 

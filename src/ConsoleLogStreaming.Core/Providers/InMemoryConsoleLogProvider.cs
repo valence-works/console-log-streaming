@@ -26,7 +26,10 @@ public sealed class InMemoryConsoleLogProvider : IConsoleLogProvider, IConsoleLo
     private readonly ConcurrentDictionary<Guid, Subscriber> _subscribers = new();
 
     /// <summary>
-    /// Initializes a new instance of the provider.
+    /// Initializes a new instance of the provider. The optional <paramref name="timeProvider"/>
+    /// (default <see cref="TimeProvider.System"/>) drives release gating and drop-summary
+    /// timestamps; when the provider is activated from a service container, a registered
+    /// <see cref="TimeProvider"/> is injected automatically.
     /// </summary>
     public InMemoryConsoleLogProvider(
         IOptions<ConsoleLogOptions> options,
@@ -136,16 +139,31 @@ public sealed class InMemoryConsoleLogProvider : IConsoleLogProvider, IConsoleLo
             var reader = subscriber.Channel.Reader;
             long? lastReleaseTimestamp = null;
 
-            while (await reader.WaitToReadAsync(cancellationToken).ConfigureAwait(false))
+            while (true)
             {
-                if (lastReleaseTimestamp is { } previousRelease)
-                {
-                    var wait = _streamReleaseInterval - _timeProvider.GetElapsedTime(previousRelease);
-                    if (wait > TimeSpan.Zero)
-                        await Task.Delay(wait, _timeProvider, cancellationToken).ConfigureAwait(false);
-                }
+                var waitToRead = reader.WaitToReadAsync(cancellationToken);
 
-                lastReleaseTimestamp = _timeProvider.GetTimestamp();
+                // An asynchronous wait means the buffer is drained: the current batch is complete
+                // and the next item opens a new batch behind the release gate. A synchronous
+                // completion means the buffer refilled while the previous batch drained — a
+                // sustained flood with no request feedback to dampen — so it extends the batch
+                // ungated.
+                var opensNewBatch = !waitToRead.IsCompleted;
+
+                if (!await waitToRead.ConfigureAwait(false))
+                    yield break;
+
+                if (opensNewBatch)
+                {
+                    if (lastReleaseTimestamp is { } previousRelease)
+                    {
+                        var wait = _streamReleaseInterval - _timeProvider.GetElapsedTime(previousRelease);
+                        if (wait > TimeSpan.Zero)
+                            await Task.Delay(wait, _timeProvider, cancellationToken).ConfigureAwait(false);
+                    }
+
+                    lastReleaseTimestamp = _timeProvider.GetTimestamp();
+                }
 
                 while (reader.TryRead(out var item))
                     yield return item;
@@ -183,13 +201,17 @@ public sealed class InMemoryConsoleLogProvider : IConsoleLogProvider, IConsoleLo
     {
         private long _droppedCount;
         private DateTimeOffset? _firstDrop;
+        private ConsoleLogDroppedSummary? _pendingDropSummary;
 
         public Guid Id { get; } = Guid.NewGuid();
 
+        // Wait mode so TryWrite reports rejection when the queue is full (only TryWrite is used,
+        // so nothing ever blocks); DropWrite makes TryWrite return true while silently discarding
+        // the item, which would turn the drop accounting below into dead code.
         public Channel<ConsoleLogStreamingItem> Channel { get; } = System.Threading.Channels.Channel.CreateBounded<ConsoleLogStreamingItem>(
             new BoundedChannelOptions(capacity)
             {
-                FullMode = BoundedChannelFullMode.DropWrite,
+                FullMode = BoundedChannelFullMode.Wait,
                 SingleReader = true,
                 SingleWriter = false
             });
@@ -198,6 +220,8 @@ public sealed class InMemoryConsoleLogProvider : IConsoleLogProvider, IConsoleLo
         {
             if (!ConsoleLogFilterMatcher.IsMatch(line, filter))
                 return;
+
+            FlushPendingDropSummary();
 
             if (Channel.Writer.TryWrite(item))
                 return;
@@ -216,7 +240,20 @@ public sealed class InMemoryConsoleLogProvider : IConsoleLogProvider, IConsoleLo
                 From = _firstDrop,
                 To = timeProvider.GetUtcNow()
             };
-            Channel.Writer.TryWrite(ConsoleLogStreamingItem.FromDropped(summary));
+
+            // The channel that just rejected the line is usually still full, so this write tends
+            // to fail as well; park the summary and retry on the next publish, once the reader
+            // has had a chance to drain. Counts are cumulative, so a newer summary superseding a
+            // parked one loses no information.
+            if (!Channel.Writer.TryWrite(ConsoleLogStreamingItem.FromDropped(summary)))
+                _pendingDropSummary = summary;
+        }
+
+        private void FlushPendingDropSummary()
+        {
+            var pending = Interlocked.Exchange(ref _pendingDropSummary, null);
+            if (pending is not null && !Channel.Writer.TryWrite(ConsoleLogStreamingItem.FromDropped(pending)))
+                _pendingDropSummary = pending;
         }
     }
 }
