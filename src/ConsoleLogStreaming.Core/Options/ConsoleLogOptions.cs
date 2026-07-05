@@ -46,7 +46,10 @@ public sealed class ConsoleLogOptions
     /// was drained and the next item arrives asynchronously, so sustained floods are never
     /// throttled and bursts drain together. Breaks request/log feedback loops (e.g. per-request
     /// logging over a long-polling transport, where each pushed line completes the next pending
-    /// poll 1:1). Zero (default) releases items as soon as they are available.
+    /// poll 1:1). Items buffered while the gate holds remain bounded by
+    /// <see cref="SubscriberCapacity"/> and its drop policy, so a stream that outpaces one
+    /// capacity per interval sheds lines the same way it would for a slow consumer.
+    /// Zero (default) releases items as soon as they are available.
     /// </summary>
     public TimeSpan StreamReleaseInterval { get; set; } = TimeSpan.Zero;
 

@@ -1,8 +1,8 @@
+using ConsoleLogStreaming.Core;
+using ConsoleLogStreaming.Core.DependencyInjection;
 using ConsoleLogStreaming.Core.Models;
 using ConsoleLogStreaming.Core.Options;
-using ConsoleLogStreaming.Core.Providers;
-using ConsoleLogStreaming.Core.Redaction;
-using ConsoleLogStreaming.Core.Sources;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Time.Testing;
 
 namespace ConsoleLogStreaming.Tests.Core;
@@ -24,27 +24,39 @@ public sealed class InMemoryConsoleLogProviderStreamReleaseIntervalTests : IAsyn
     private static readonly TimeSpan HeldAssertionWindow = TimeSpan.FromMilliseconds(250);
 
     private readonly FakeTimeProvider _time = new();
-    private readonly InMemoryConsoleLogProvider _provider;
+    private readonly IConsoleLogProvider _provider;
     private readonly ConsoleLogSource _source;
+    private readonly CancellationTokenSource _cts = new();
     private readonly IAsyncEnumerator<ConsoleLogStreamingItem> _subscription;
     private long _sequence;
 
     public InMemoryConsoleLogProviderStreamReleaseIntervalTests()
     {
         (_provider, _source) = CreateProvider(ReleaseInterval, _time);
-        _subscription = _provider.SubscribeAsync(new ConsoleLogFilter()).GetAsyncEnumerator();
+        _subscription = _provider.SubscribeAsync(new ConsoleLogFilter(), _cts.Token).GetAsyncEnumerator();
     }
 
-    public async ValueTask DisposeAsync() => await _subscription.DisposeAsync();
+    public async ValueTask DisposeAsync()
+    {
+        await _cts.CancelAsync();
+        try
+        {
+            await _subscription.DisposeAsync();
+        }
+        catch (NotSupportedException)
+        {
+            // Only reachable when a test already failed with a pull still pending: the iterator
+            // rejects disposal mid-MoveNextAsync and the cancellation above unwinds it instead,
+            // so disposal noise cannot mask the real assertion failure.
+        }
+
+        _cts.Dispose();
+    }
 
     [Fact]
     public async Task ReleasesTheFirstLineWithoutDelay()
     {
-        // Starting the pull registers the subscriber and parks the iterator at the channel wait.
-        var next = _subscription.MoveNextAsync().AsTask();
-        await PublishAsync("first");
-
-        Assert.True(await next.WaitAsync(RealTimeout));
+        await ReceiveFirstLineAsync();
         Assert.Equal("first", _subscription.Current.Line!.Text);
     }
 
@@ -87,38 +99,63 @@ public sealed class InMemoryConsoleLogProviderStreamReleaseIntervalTests : IAsyn
     }
 
     [Fact]
+    public async Task LinesArrivingWhileABatchDrainsJoinItWithoutGating()
+    {
+        await ReceiveFirstLineAsync();
+
+        var next = _subscription.MoveNextAsync().AsTask();
+        await PublishAsync("second");
+        _time.Advance(ReleaseInterval);
+        Assert.True(await WaitDrivingFakeTimeAsync(next));
+        Assert.Equal("second", _subscription.Current.Line!.Text);
+
+        // Published while the iterator is suspended mid-batch at the yield: the batch is still
+        // draining, so these stream on real time alone — a flood is never gated.
+        await PublishAsync("third");
+        await PublishAsync("fourth");
+        await AssertNextLineAsync("third");
+        await AssertNextLineAsync("fourth");
+    }
+
+    [Fact]
     public async Task ZeroIntervalStreamsWithoutGating()
     {
         var (provider, source) = CreateProvider(TimeSpan.Zero, _time);
         await using var subscription = provider.SubscribeAsync(new ConsoleLogFilter()).GetAsyncEnumerator();
 
-        var first = subscription.MoveNextAsync().AsTask();
-        await provider.PublishAsync(Line(source, "first"));
-        Assert.True(await first.WaitAsync(RealTimeout));
-        Assert.Equal("first", subscription.Current.Line!.Text);
+        // The default path never touches the clock: every line streams on real time alone.
+        await PublishAndReceiveAsync("first");
+        await PublishAndReceiveAsync("second");
 
-        // The default path never touches the clock: a follow-up line streams immediately.
-        var next = subscription.MoveNextAsync().AsTask();
-        await provider.PublishAsync(Line(source, "second"));
-        Assert.True(await next.WaitAsync(RealTimeout));
-        Assert.Equal("second", subscription.Current.Line!.Text);
+        async Task PublishAndReceiveAsync(string text)
+        {
+            var next = subscription.MoveNextAsync().AsTask();
+            await provider.PublishAsync(Line(source, text));
+            Assert.True(await next.WaitAsync(RealTimeout));
+            Assert.Equal(text, subscription.Current.Line!.Text);
+        }
     }
 
-    private static (InMemoryConsoleLogProvider Provider, ConsoleLogSource Source) CreateProvider(
+    private static (IConsoleLogProvider Provider, ConsoleLogSource Source) CreateProvider(
         TimeSpan streamReleaseInterval,
         TimeProvider timeProvider)
     {
-        var options = Microsoft.Extensions.Options.Options.Create(new ConsoleLogOptions
-        {
-            SourceId = "source-a",
-            StreamReleaseInterval = streamReleaseInterval
-        });
-        var sourceRegistry = new ConsoleLogSourceRegistry(options);
-        var redactionPipeline = new ConsoleLogRedactionPipeline([new RegexConsoleLogRedactor(options)]);
-        var provider = new InMemoryConsoleLogProvider(options, redactionPipeline, sourceRegistry, timeProvider);
-        return (provider, sourceRegistry.Current);
+        var services = new ServiceCollection()
+            .AddConsoleLogStreaming(options =>
+            {
+                options.SourceId = "source-a";
+                options.StreamReleaseInterval = streamReleaseInterval;
+            })
+            .AddSingleton(timeProvider)
+            .BuildServiceProvider();
+
+        return (services.GetRequiredService<IConsoleLogProvider>(), services.GetRequiredService<IConsoleLogSourceRegistry>().Current);
     }
 
+    /// <summary>
+    /// Starts the pull first — registering the subscriber and parking the iterator at the channel
+    /// wait — then publishes; a line published before the first pull would be missed.
+    /// </summary>
     private async Task ReceiveFirstLineAsync()
     {
         var next = _subscription.MoveNextAsync().AsTask();
@@ -144,14 +181,20 @@ public sealed class InMemoryConsoleLogProviderStreamReleaseIntervalTests : IAsyn
 
     /// <summary>
     /// Awaits the pending pull while nudging the fake clock, so the assertion cannot race the
-    /// gate registering its release timer.
+    /// gate registering its release timer. The extra fake time is capped at one additional
+    /// interval — enough to cover the registration race, small enough that a gate wrongly
+    /// holding for two or more intervals still fails the test.
     /// </summary>
     private async Task<bool> WaitDrivingFakeTimeAsync(Task<bool> pendingMoveNext)
     {
+        var step = TimeSpan.FromMilliseconds(20);
+        var advanced = TimeSpan.Zero;
         var deadline = DateTime.UtcNow + RealTimeout;
-        while (!pendingMoveNext.IsCompleted && DateTime.UtcNow < deadline)
+
+        while (!pendingMoveNext.IsCompleted && DateTime.UtcNow < deadline && advanced < ReleaseInterval)
         {
-            _time.Advance(TimeSpan.FromMilliseconds(20));
+            _time.Advance(step);
+            advanced += step;
             await Task.WhenAny(pendingMoveNext, Task.Delay(TimeSpan.FromMilliseconds(10)));
         }
 
