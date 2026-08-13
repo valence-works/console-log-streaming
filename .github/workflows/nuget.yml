@@ -175,4 +175,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          gh release upload "${{ github.event.release.tag_name }}" "$PACKAGE_OUTPUT"/*.nupkg --clobber
+          gh release upload "${{ github.event.release.tag_name }}" "$PACKAGE_OUTPUT"/*.nupkg \
+            --repo "${{ github.repository }}" \
+            --clobber
